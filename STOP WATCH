@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Stopwatch</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            padding: 20px;
+        }
+        
+        .stopwatch-container {
+            width: 100%;
+            max-width: 400px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .timer-display {
+            padding: 40px 20px;
+            text-align: center;
+            background-color: #ecf0f1;
+        }
+        
+        .time {
+            font-size: 70px;
+            font-weight: 300;
+            color: #2c3e50;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .milliseconds {
+            font-size: 30px;
+            color: #7f8c8d;
+        }
+        
+        .controls {
+            display: flex;
+            padding: 20px;
+            background-color: #34495e;
+            justify-content: space-around;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            min-width: 100px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-start {
+            background-color: #2ecc71;
+            color: white;
+        }
+        
+        .btn-start:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+        }
+        
+        .btn-stop {
+            background-color: #e74c3c;
+            color: white;
+        }
+        
+        .btn-stop:hover {
+            background-color: #c0392b;
+            transform: translateY(-2px);
+        }
+        
+        .btn-hold {
+            background-color: #f39c12;
+            color: white;
+        }
+        
+        .btn-hold:hover {
+            background-color: #d35400;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .laps-container {
+            padding: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .lap-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #bdc3c7;
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .lap-item:last-child {
+            border-bottom: none;
+        }
+        
+        .lap-number {
+            font-weight: 600;
+            color: #7f8c8d;
+        }
+        
+        @media (max-width: 480px) {
+            .time {
+                font-size: 60px;
+            }
+            
+            .btn {
+                padding: 12px 20px;
+                min-width: 80px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stopwatch-container">
+        <div class="header">
+            Android Stopwatch
+        </div>
+        
+        <div class="timer-display">
+            <div class="time">00:00:00<span class="milliseconds">.00</span></div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn">Start</button>
+            <button class="btn btn-stop" id="stopBtn" disabled>Stop</button>
+            <button class="btn btn-hold" id="holdBtn" disabled>Hold</button>
+        </div>
+        
+        <div class="laps-container" id="lapsContainer">
+            <!-- Lap times will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const holdBtn = document.getElementById('holdBtn');
+            const timeDisplay = document.querySelector('.time');
+            const msDisplay = document.querySelector('.milliseconds');
+            const lapsContainer = document.getElementById('lapsContainer');
+            
+            let startTime = 0;
+            let elapsedTime = 0;
+            let timerInterval = null;
+            let isRunning = false;
+            let lapCount = 1;
+            
+            // Format time to display (HH:MM:SS.ms)
+            function formatTime(time) {
+                const date = new Date(time);
+                const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+                const milliseconds = Math.floor(date.getUTCMilliseconds() / 10).toString().padStart(2, '0');
+                
+                // For hours, we need to calculate manually
+                const hours = Math.floor(time / (1000 * 60 * 60)).toString().padStart(2, '0');
+                
+                return {
+                    hours,
+                    minutes,
+                    seconds,
+                    milliseconds
+                };
+            }
+            
+            // Update the timer display
+            function updateDisplay() {
+                const currentTime = Date.now() - startTime + elapsedTime;
+                const time = formatTime(currentTime);
+                
+                timeDisplay.innerHTML = `${time.hours}:${time.minutes}:${time.seconds}`;
+                msDisplay.textContent = `.${time.milliseconds}`;
+            }
+            
+            // Start the stopwatch
+            function startTimer() {
+                if (!isRunning) {
+                    startTime = Date.now();
+                    timerInterval = setInterval(updateDisplay, 10);
+                    isRunning = true;
+                    
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    holdBtn.disabled = false;
+                }
+            }
+            
+            // Stop the stopwatch
+            function stopTimer() {
+                if (isRunning) {
+                    clearInterval(timerInterval);
+                    elapsedTime += Date.now() - startTime;
+                    isRunning = false;
+                    
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    holdBtn.disabled = true;
+                }
+            }
+            
+            // Reset the stopwatch
+            function resetTimer() {
+                clearInterval(timerInterval);
+                startTime = 0;
+                elapsedTime = 0;
+                isRunning = false;
+                
+                timeDisplay.textContent = '00:00:00';
+                msDisplay.textContent = '.00';
+                
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                holdBtn.disabled = true;
+                
+                // Clear lap times
+                lapsContainer.innerHTML = '';
+                lapCount = 1;
+            }
+            
+            // Record a lap time
+            function recordLap() {
+                if (isRunning) {
+                    const currentTime = Date.now() - startTime + elapsedTime;
+                    const time = formatTime(currentTime);
+                    
+                    const lapItem = document.createElement('div');
+                    lapItem.className = 'lap-item';
+                    lapItem.innerHTML = `
+                        <span class="lap-number">Lap ${lapCount++}</span>
+                        <span class="lap-time">${time.hours}:${time.minutes}:${time.seconds}.${time.milliseconds}</span>
+                    `;
+                    
+                    lapsContainer.prepend(lapItem);
+                }
+            }
+            
+            // Event listeners for buttons
+            startBtn.addEventListener('click', startTimer);
+            stopBtn.addEventListener('click', stopTimer);
+            holdBtn.addEventListener('click', recordLap);
+            
+            // Double-tap stop button to reset
+            let lastTap = 0;
+            stopBtn.addEventListener('click', function(e) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                
+                if (tapLength < 300 && tapLength > 0) {
+                    resetTimer();
+                }
+                lastTap = currentTime;
+            });
+        });
+    </script>
+</body>
+</html>
