@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="logo">
+        <i class="fas fa-tachometer-alt"></i>
+        <h1>Dashboard</h1>
+    </div>
+    
+    <div class="dashboard-content">
+        <div class="user-welcome">
+            <i class="fas fa-user-circle"></i>
+            <h2>Welcome, {{ username }}!</h2>
+        </div>
+        
+        <p>You have successfully accessed the secured page.</p>
+        <p>This is a protected area that only authenticated users can view.</p>
+    </div>
+    
+    <a href="{{ url_for('logout') }}" class="logout-btn">
+        <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
+</div>
+{% endblock %}
