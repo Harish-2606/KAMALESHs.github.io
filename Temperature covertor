@@ -1,0 +1,379 @@
+import React, { useState, useEffect } from 'react';
+import { Thermometer, Sun, Snowflake, Wind, RefreshCcw, History, Calculator, Info } from 'lucide-react';
+
+const TemperatureConverterApp = () => {
+  const [fahrenheit, setFahrenheit] = useState('');
+  const [celsius, setCelsius] = useState('');
+  const [kelvin, setKelvin] = useState('');
+  const [activeInput, setActiveInput] = useState('fahrenheit');
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+
+  // Conversion functions
+  const fahrenheitToCelsius = (f) => (f - 32) * 5/9;
+  const celsiusToFahrenheit = (c) => c * 9/5 + 32;
+  const celsiusToKelvin = (c) => c + 273.15;
+  const kelvinToCelsius = (k) => k - 273.15;
+  const fahrenheitToKelvin = (f) => celsiusToKelvin(fahrenheitToCelsius(f));
+  const kelvinToFahrenheit = (k) => celsiusToFahrenheit(kelvinToCelsius(k));
+
+  // Update all values when one changes
+  const updateTemperatures = (value, unit) => {
+    if (value === '') {
+      setFahrenheit('');
+      setCelsius('');
+      setKelvin('');
+      return;
+    }
+
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return;
+
+    let f, c, k;
+
+    switch (unit) {
+      case 'fahrenheit':
+        f = numValue;
+        c = fahrenheitToCelsius(f);
+        k = fahrenheitToKelvin(f);
+        break;
+      case 'celsius':
+        c = numValue;
+        f = celsiusToFahrenheit(c);
+        k = celsiusToKelvin(c);
+        break;
+      case 'kelvin':
+        k = numValue;
+        c = kelvinToCelsius(k);
+        f = kelvinToFahrenheit(k);
+        break;
+      default:
+        return;
+    }
+
+    setFahrenheit(f.toFixed(2));
+    setCelsius(c.toFixed(2));
+    setKelvin(k.toFixed(2));
+
+    // Add to history
+    const conversion = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      input: ${numValue}°${unit[0].toUpperCase()},
+      results: {
+        fahrenheit: f.toFixed(2),
+        celsius: c.toFixed(2),
+        kelvin: k.toFixed(2)
+      }
+    };
+
+    setHistory(prev => [conversion, ...prev.slice(0, 9)]); // Keep last 10 conversions
+  };
+
+  const handleInputChange = (value, unit) => {
+    setActiveInput(unit);
+    
+    switch (unit) {
+      case 'fahrenheit':
+        setFahrenheit(value);
+        break;
+      case 'celsius':
+        setCelsius(value);
+        break;
+      case 'kelvin':
+        setKelvin(value);
+        break;
+    }
+
+    if (value !== '') {
+      updateTemperatures(value, unit);
+    }
+  };
+
+  const clearAll = () => {
+    setFahrenheit('');
+    setCelsius('');
+    setKelvin('');
+    setActiveInput('fahrenheit');
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+  };
+
+  const getTemperatureColor = (temp, unit) => {
+    let celsius = temp;
+    if (unit === 'fahrenheit') {
+      celsius = fahrenheitToCelsius(temp);
+    } else if (unit === 'kelvin') {
+      celsius = kelvinToCelsius(temp);
+    }
+
+    if (celsius <= 0) return 'text-blue-600';
+    if (celsius <= 10) return 'text-cyan-600';
+    if (celsius <= 20) return 'text-green-600';
+    if (celsius <= 30) return 'text-yellow-600';
+    if (celsius <= 40) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getTemperatureIcon = (temp, unit) => {
+    let celsius = temp;
+    if (unit === 'fahrenheit') {
+      celsius = fahrenheitToCelsius(temp);
+    } else if (unit === 'kelvin') {
+      celsius = kelvinToCelsius(temp);
+    }
+
+    if (celsius <= 0) return <Snowflake className="w-5 h-5 text-blue-500" />;
+    if (celsius <= 20) return <Wind className="w-5 h-5 text-cyan-500" />;
+    return <Sun className="w-5 h-5 text-orange-500" />;
+  };
+
+  const commonTemperatures = [
+    { name: 'Absolute Zero', f: -459.67, c: -273.15, k: 0 },
+    { name: 'Water Freezing', f: 32, c: 0, k: 273.15 },
+    { name: 'Room Temperature', f: 68, c: 20, k: 293.15 },
+    { name: 'Body Temperature', f: 98.6, c: 37, k: 310.15 },
+    { name: 'Water Boiling', f: 212, c: 100, k: 373.15 }
+  ];
+
+  const quickConvert = (temp) => {
+    setFahrenheit(temp.f.toString());
+    setCelsius(temp.c.toString());
+    setKelvin(temp.k.toString());
+    setActiveInput('celsius');
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Thermometer className="w-10 h-10 text-blue-600" />
+            <h1 className="text-4xl font-bold text-gray-800">Temperature Converter</h1>
+          </div>
+          <p className="text-gray-600">Convert between Fahrenheit, Celsius, and Kelvin instantly</p>
+        </div>
+
+        {/* Main Converter */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Fahrenheit */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-lg font-semibold text-gray-700">
+                <Sun className="w-5 h-5 text-orange-500" />
+                Fahrenheit (°F)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={fahrenheit}
+                  onChange={(e) => handleInputChange(e.target.value, 'fahrenheit')}
+                  placeholder="Enter temperature..."
+                  className={`w-full p-4 text-xl border-2 rounded-xl focus:outline-none transition-all ${
+                    activeInput === 'fahrenheit' 
+                      ? 'border-orange-500 focus:ring-4 focus:ring-orange-100' 
+                      : 'border-gray-200 focus:border-orange-400'
+                  }`}
+                />
+                {fahrenheit && !isNaN(fahrenheit) && (
+                  <div className="absolute right-3 top-4">
+                    {getTemperatureIcon(parseFloat(fahrenheit), 'fahrenheit')}
+                  </div>
+                )}
+              </div>
+              {fahrenheit && !isNaN(fahrenheit) && (
+                <div className={text-center font-semibold ${getTemperatureColor(parseFloat(fahrenheit), 'fahrenheit')}}>
+                  {parseFloat(fahrenheit) <= 32 ? 'Below Freezing' : 
+                   parseFloat(fahrenheit) <= 68 ? 'Cool' :
+                   parseFloat(fahrenheit) <= 86 ? 'Comfortable' :
+                   parseFloat(fahrenheit) <= 104 ? 'Hot' : 'Very Hot'}
+                </div>
+              )}
+            </div>
+
+            {/* Celsius */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-lg font-semibold text-gray-700">
+                <Thermometer className="w-5 h-5 text-blue-500" />
+                Celsius (°C)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={celsius}
+                  onChange={(e) => handleInputChange(e.target.value, 'celsius')}
+                  placeholder="Enter temperature..."
+                  className={`w-full p-4 text-xl border-2 rounded-xl focus:outline-none transition-all ${
+                    activeInput === 'celsius' 
+                      ? 'border-blue-500 focus:ring-4 focus:ring-blue-100' 
+                      : 'border-gray-200 focus:border-blue-400'
+                  }`}
+                />
+                {celsius && !isNaN(celsius) && (
+                  <div className="absolute right-3 top-4">
+                    {getTemperatureIcon(parseFloat(celsius), 'celsius')}
+                  </div>
+                )}
+              </div>
+              {celsius && !isNaN(celsius) && (
+                <div className={text-center font-semibold ${getTemperatureColor(parseFloat(celsius), 'celsius')}}>
+                  {parseFloat(celsius) <= 0 ? 'Freezing' : 
+                   parseFloat(celsius) <= 20 ? 'Cool' :
+                   parseFloat(celsius) <= 30 ? 'Comfortable' :
+                   parseFloat(celsius) <= 40 ? 'Hot' : 'Very Hot'}
+                </div>
+              )}
+            </div>
+
+            {/* Kelvin */}
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 text-lg font-semibold text-gray-700">
+                <Calculator className="w-5 h-5 text-purple-500" />
+                Kelvin (K)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={kelvin}
+                  onChange={(e) => handleInputChange(e.target.value, 'kelvin')}
+                  placeholder="Enter temperature..."
+                  className={`w-full p-4 text-xl border-2 rounded-xl focus:outline-none transition-all ${
+                    activeInput === 'kelvin' 
+                      ? 'border-purple-500 focus:ring-4 focus:ring-purple-100' 
+                      : 'border-gray-200 focus:border-purple-400'
+                  }`}
+                />
+                {kelvin && !isNaN(kelvin) && (
+                  <div className="absolute right-3 top-4">
+                    {getTemperatureIcon(parseFloat(kelvin), 'kelvin')}
+                  </div>
+                )}
+              </div>
+              {kelvin && !isNaN(kelvin) && (
+                <div className={text-center font-semibold ${getTemperatureColor(parseFloat(kelvin), 'kelvin')}}>
+                  {parseFloat(kelvin) <= 273.15 ? 'Below Freezing' : 
+                   parseFloat(kelvin) <= 293.15 ? 'Cool' :
+                   parseFloat(kelvin) <= 303.15 ? 'Comfortable' :
+                   parseFloat(kelvin) <= 313.15 ? 'Hot' : 'Very Hot'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Control Buttons */}
+          <div className="flex justify-center gap-4 mt-8">
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-2 px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-xl font-semibold transition-colors"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Clear All
+            </button>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-semibold transition-colors"
+            >
+              <History className="w-4 h-4" />
+              History ({history.length})
+            </button>
+            <button
+              onClick={() => setShowInfo(!showInfo)}
+              className="flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold transition-colors"
+            >
+              <Info className="w-4 h-4" />
+              Quick Reference
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Reference */}
+        {showInfo && (
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">Common Temperatures</h3>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {commonTemperatures.map((temp, index) => (
+                <button
+                  key={index}
+                  onClick={() => quickConvert(temp)}
+                  className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 rounded-xl border-2 border-transparent hover:border-blue-300 transition-all"
+                >
+                  <div className="font-semibold text-gray-800 mb-2">{temp.name}</div>
+                  <div className="text-sm space-y-1">
+                    <div className="text-orange-600">{temp.f}°F</div>
+                    <div className="text-blue-600">{temp.c}°C</div>
+                    <div className="text-purple-600">{temp.k}K</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Conversion History */}
+        {showHistory && history.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold text-gray-800">Conversion History</h3>
+              <button
+                onClick={clearHistory}
+                className="text-red-500 hover:text-red-700 font-semibold"
+              >
+                Clear History
+              </button>
+            </div>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {history.map((conversion) => (
+                <div key={conversion.id} className="p-4 bg-gray-50 rounded-xl">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="font-semibold text-gray-800">Input: {conversion.input}</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <span className="text-orange-600">{conversion.results.fahrenheit}°F</span> • 
+                        <span className="text-blue-600 ml-1">{conversion.results.celsius}°C</span> • 
+                        <span className="text-purple-600 ml-1">{conversion.results.kelvin}K</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500">{conversion.timestamp}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Formula Reference */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mt-6">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">Conversion Formulas</h3>
+          <div className="grid md:grid-cols-3 gap-6 text-sm">
+            <div className="space-y-2">
+              <div className="font-semibold text-orange-600">Fahrenheit ↔ Celsius</div>
+              <div className="bg-orange-50 p-3 rounded-lg">
+                <div>°C = (°F - 32) × 5/9</div>
+                <div>°F = °C × 9/5 + 32</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-blue-600">Celsius ↔ Kelvin</div>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div>K = °C + 273.15</div>
+                <div>°C = K - 273.15</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="font-semibold text-purple-600">Fahrenheit ↔ Kelvin</div>
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div>K = (°F - 32) × 5/9 + 273.15</div>
+                <div>°F = (K - 273.15) × 9/5 + 32</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+TemperatureConverterApp;
