@@ -1,0 +1,238 @@
+import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity {
+
+    // UI elements
+    private ScrollView loginContainer, signupContainer;
+    private LinearLayout mainContainer;
+    private EditText etEmail, etPassword, etFullName, etSignupEmail, etSignupPassword, etConfirmPassword, etNewTask;
+    private Button btnLogin, btnGoToSignup, btnSignup, btnGoToLogin, btnAddTask, btnLogout;
+    private ListView lvTasks;
+    private TextView tvNoTasks;
+    
+    // Database helper
+    private DatabaseHelper dbHelper;
+    
+    // Shared preferences for session management
+    private SharedPreferences sharedPreferences;
+    
+    // Current user ID
+    private int currentUserId = -1;
+    
+    // Task list
+    private List<Task> taskList;
+    private TaskAdapter taskAdapter;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        
+        // Initialize database helper
+        dbHelper = new DatabaseHelper(this);
+        
+        // Initialize shared preferences
+        sharedPreferences = getSharedPreferences("TodoAppPrefs", MODE_PRIVATE);
+        
+        // Check if user is already logged in
+        currentUserId = sharedPreferences.getInt("userId", -1);
+        if (currentUserId != -1) {
+            showMainApp();
+        }
+        
+        // Initialize UI elements
+        initUI();
+        
+        // Set up event listeners
+        setupListeners();
+    }
+    
+    private void initUI() {
+        // Containers
+        loginContainer = findViewById(R.id.loginContainer);
+        signupContainer = findViewById(R.id.signupContainer);
+        mainContainer = findViewById(R.id.mainContainer);
+        
+        // Login form
+        etEmail = findViewById(R.id.etEmail);
+        etPassword = findViewById(R.id.etPassword);
+        btnLogin = findViewById(R.id.btnLogin);
+        btnGoToSignup = findViewById(R.id.btnGoToSignup);
+        
+        // Signup form
+        etFullName = findViewById(R.id.etFullName);
+        etSignupEmail = findViewById(R.id.etSignupEmail);
+        etSignupPassword = findViewById(R.id.etSignupPassword);
+        etConfirmPassword = findViewById(R.id.etConfirmPassword);
+        btnSignup = findViewById(R.id.btnSignup);
+        btnGoToLogin = findViewById(R.id.btnGoToLogin);
+        
+        // Main app
+        etNewTask = findViewById(R.id.etNewTask);
+        btnAddTask = findViewById(R.id.btnAddTask);
+        btnLogout = findViewById(R.id.btnLogout);
+        lvTasks = findViewById(R.id.lvTasks);
+        tvNoTasks = findViewById(R.id.tvNoTasks);
+        
+        // Initialize task list and adapter
+        taskList = new ArrayList<>();
+        taskAdapter = new TaskAdapter(this, taskList);
+        lvTasks.setAdapter(taskAdapter);
+    }
+    
+    private void setupListeners() {
+        // Login button
+        btnLogin.setOnClickListener(v -> {
+            String email = etEmail.getText().toString().trim();
+            String password = etPassword.getText().toString().trim();
+            
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(MainActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            int userId = dbHelper.checkUser(email, password);
+            if (userId != -1) {
+                currentUserId = userId;
+                
+                // Save user session
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt("userId", userId);
+                editor.apply();
+                
+                showMainApp();
+                loadTasks();
+                Toast.makeText(MainActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(MainActivity.this, "Invalid email or password", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Go to signup button
+        btnGoToSignup.setOnClickListener(v -> {
+            loginContainer.setVisibility(View.GONE);
+            signupContainer.setVisibility(View.VISIBLE);
+        });
+        
+        // Signup button
+        btnSignup.setOnClickListener(v -> {
+            String fullName = etFullName.getText().toString().trim();
+            String email = etSignupEmail.getText().toString().trim();
+            String password = etSignupPassword.getText().toString().trim();
+            String confirmPassword = etConfirmPassword.getText().toString().trim();
+            
+            if (fullName.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
+                Toast.makeText(MainActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            if (!password.equals(confirmPassword)) {
+                Toast.makeText(MainActivity.this, "Passwords do not match", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            boolean success = dbHelper.addUser(fullName, email, password);
+            if (success) {
+                Toast.makeText(MainActivity.this, "Registration successful. Please login.", Toast.LENGTH_SHORT).show();
+                signupContainer.setVisibility(View.GONE);
+                loginContainer.setVisibility(View.VISIBLE);
+                
+                // Clear signup form
+                etFullName.setText("");
+                etSignupEmail.setText("");
+                etSignupPassword.setText("");
+                etConfirmPassword.setText("");
+            } else {
+                Toast.makeText(MainActivity.this, "Registration failed. Email may already exist.", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Go to login button
+        btnGoToLogin.setOnClickListener(v -> {
+            signupContainer.setVisibility(View.GONE);
+            loginContainer.setVisibility(View.VISIBLE);
+        });
+        
+        // Add task button
+        btnAddTask.setOnClickListener(v -> {
+            String taskText = etNewTask.getText().toString().trim();
+            if (taskText.isEmpty()) {
+                Toast.makeText(MainActivity.this, "Please enter a task", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            long taskId = dbHelper.addTask(currentUserId, taskText);
+            if (taskId != -1) {
+                Task newTask = new Task((int) taskId, taskText);
+                taskList.add(newTask);
+                taskAdapter.notifyDataSetChanged();
+                etNewTask.setText("");
+                updateNoTasksVisibility();
+                Toast.makeText(MainActivity.this, "Task added", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(MainActivity.this, "Failed to add task", Toast.LENGTH_SHORT).show();
+            }
+        });
+        
+        // Logout button
+        btnLogout.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle("Logout");
+            builder.setMessage("Are you sure you want to logout?");
+            builder.setPositiveButton("Yes", (dialog, which) -> {
+                // Clear user session
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.remove("userId");
+                editor.apply();
+                
+                currentUserId = -1;
+                showLoginScreen();
+                
+                // Clear task list
+                taskList.clear();
+                taskAdapter.notifyDataSetChanged();
+            });
+            builder.setNegativeButton("No", null);
+            builder.show();
+        });
+        
+        // Task item long click to delete
+        lvTasks.setOnItemLongClickListener((parent, view, position, id) -> {
+            Task task = taskList.get(position);
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+            builder.setTitle("Delete Task");
+            builder.setMessage("Are you sure you want to delete this task?");
+            builder.setPositiveButton("Yes", (dialog, which) -> {
+                boolean deleted = dbHelper.deleteTask(task.getId());
+                if (deleted) {
+                    taskList.remove(position);
+                    taskAdapter.notifyDataSetChanged();
+                    updateNoTasksVisibility();
+                    Toast.makeText(MainActivity.this, "Task deleted", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MainActivity.this, "Failed to delete task", Toast.L
